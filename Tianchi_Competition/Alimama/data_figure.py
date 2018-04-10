@@ -21,6 +21,7 @@ def deal_user_star_level(data):
     return data
 deal_user_star_level(data)
 
+print(data.describe())
 print(data.head(5))
 data.drop(['item_category_list'], axis=1, inplace=True)
 data.drop(['item_property_list'], axis=1, inplace=True)
@@ -36,12 +37,22 @@ features = [ # item
            ]
 data = data[features]
 data_corr = data.corr(min_periods=10)
+result = data.groupby('item_price_level')['item_city_id'].describe()
+print(result)
 
-# 画出特征相关性的热力图
-sns.set()
-a = plt.figure('特征相关性热力图')
-ax = plt.subplot(111)
-heat_map = sns.heatmap(data_corr, vmin=-1, vmax=1, annot=True, square=True)
-plt.plot(50,50)
-plt.show()
-plt.close()
+
+
+
+
+
+
+
+
+# # 画出特征相关性的热力图
+# sns.set()
+# a = plt.figure('特征相关性热力图')
+# ax = plt.subplot(111)
+# heat_map = sns.heatmap(data_corr, vmin=-1, vmax=1, annot=True, square=True)
+# plt.plot(50,50)
+# plt.show()
+# plt.close()
