@@ -25,6 +25,9 @@ y = tf.matmul(a, w2)
 # cross_entropy 定义了真实值和预测值之间的交叉熵
 # 0.001是学习率
 y = tf.sigmoid(y)
+# clip_by_value 将值限制在 1e-10和1.0之间
+# tf.log 对张量中的元素取对数
+# * 代表元素之间直接相乘
 cross_entropy = -tf.reduce_mean(y_ * tf.log(tf.clip_by_value(y, 1e-10, 1.0))
                                 + (1-y)* tf.log(tf.clip_by_value(1-y, 1e-10, 1.0)))
 train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
@@ -33,6 +36,7 @@ train_step = tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
 rdm = RandomState()
 dataset_size = 128
 X = rdm.rand(dataset_size, 2)
+print(X)
 
 Y = [[int(x1+x2 < 1)] for (x1, x2) in X]
 
@@ -45,7 +49,7 @@ with tf.Session() as sess:
     print(sess.run(w2))
 
     # 设定训练的轮数
-    STEPS = 5000
+    STEPS = 4000
     for i in range(STEPS):
         # 每次选取batch_size个样本进行训练
         start = (i * batch_size) % dataset_size
@@ -54,7 +58,7 @@ with tf.Session() as sess:
         # 通过选取的样本训练神经网络并更新参数
         sess.run(train_step, feed_dict={x: X[start:end], y_: Y[start:end]})
         if i % 1000 == 0:
-             # 每隔一段时间计算在所有数据上的交叉熵
+             # 每隔一段时间计算在所有数据上的  交叉熵
             total_cross_entropy = sess.run(cross_entropy, feed_dict={x:X, y_:Y})
             print("After %d training step(s), cross entropy on all data is %g " %(i, total_cross_entropy))
 

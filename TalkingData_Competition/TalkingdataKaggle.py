@@ -11,6 +11,7 @@ from sklearn.svm import SVC
 from sklearn.cross_validation import train_test_split
 import xgboost as xgb
 
+
 # 定义处理时间的函数
 def dataPreProcessTime(data):
     data['click_time'] = pd.to_datetime(data['click_time']).dt.date
@@ -30,6 +31,7 @@ print('[{}] Finished  to load data!'.format(time.time()-start_time))
 # 2.对数据中的日期进行处理
 train_data = dataPreProcessTime(train_data)
 test_data  = dataPreProcessTime(test_data)
+print(train_data.head(10))
 
 train_Y = train_data[['is_attributed']].as_matrix()
 train_data.drop(['is_attributed', 'attributed_time'], axis=1, inplace=True)

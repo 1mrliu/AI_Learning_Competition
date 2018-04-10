@@ -14,9 +14,7 @@ ratings = pd.read_table('/Users/liudong/Desktop/ml-1m/ratings.dat', sep="::", he
 mname = ['movie_id', 'title', 'genres']
 movies = pd.read_table('/Users/liudong/Desktop/ml-1m/movies.dat', sep='::', header=None, names=mname)
 
-# print(users[:5])
-# print(ratings)
-# print(movies[:5])
+
 # 将几个表的数据进行结合，相同的列会进行合并
 data = pd.merge(pd.merge(ratings, users),movies)
 print(data[:5])

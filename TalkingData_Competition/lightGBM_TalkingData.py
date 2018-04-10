@@ -13,12 +13,12 @@ from sklearn.cross_validation import train_test_split
 # 1.加载数据
 start_time = time.time()
 dtypes ={
-    'ip'            : 'uint32',
-    'app'           : 'uint16',
-    'device'        : 'uint16',
-    'os'            : 'uint16',
-    'channel'       : 'uint16',
-    'is_attributed' : 'uint8',
+    'ip': 'uint32',
+    'app': 'uint16',
+    'device': 'uint16',
+    'os': 'uint16',
+    'channel': 'uint16',
+    'is_attributed': 'uint8',
 }
 
 train_data = pd.read_csv('/Users/liudong/Desktop/talkingdata/train_sample.csv',dtype=dtypes)
@@ -60,7 +60,7 @@ params = {
     'metric': 'auc',
     'num_threads': 4,}
 MAX_ROUNDS = 600
-x1, x2, y1,y2 = train_test_split(train_data, train_Y, test_size=0.1, random_state=99)
+x1, x2, y1, y2 = train_test_split(train_data, train_Y, test_size=0.1, random_state=99)
 
 dtrain = lgb.Dataset(x1, label=y1)
 dval = lgb.Dataset(x2, label=y2, reference=dtrain)
