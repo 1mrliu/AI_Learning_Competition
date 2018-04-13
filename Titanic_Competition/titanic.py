@@ -15,7 +15,6 @@ from sklearn.svm import SVC
 from sklearn.model_selection import cross_val_score
 
 
-
 # 0. 数据读入及预处理
 data_train = pd.read_csv('/Users/liudong/Desktop/titanic/train.csv')
 

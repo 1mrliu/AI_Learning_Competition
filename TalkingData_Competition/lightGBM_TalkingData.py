@@ -38,16 +38,19 @@ test_data['day'] = pd.to_datetime(test_data['click_time']).dt.day.astype('int')
 test_data['hour'] = pd.to_datetime(test_data['click_time']).dt.hour.astype('int')
 test_data.drop(['click_time'], axis=1, inplace=True)
 
-
 train_Y = train_data['is_attributed']
 train_data.drop(['is_attributed', 'attributed_time'], axis=1, inplace=True)
-
 
 sub = pd.DataFrame()
 sub['click_id'] = test_data['click_id'].astype('uint32')
 # test_data.drop('click_id', axis=1, inplace=True)
+# 3.特征工程
+print(train_data.head(5))
+print(test_data.head(5))
 
-# 3.开始训练lightGBM
+
+
+# 4.开始训练lightGBM
 print('[{}] Start lightGBM Training'.format(time.time() - start_time))
 params = {
     'num_leaves': 31,

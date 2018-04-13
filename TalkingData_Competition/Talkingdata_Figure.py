@@ -3,31 +3,39 @@
 
 """
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+import gc
 
-data = pd.read_csv('/Users/liudong/Desktop/talkingdata/train_sample.csv')
-data.drop(['attributed_time'], axis=1, inplace=True)
-# 查看设备的使用次数 和 对应的操作系统的种类
-device_data = data['device'].value_counts()
-os_data = data['os'].value_counts()
-# 计算相关性协方差  corr()函数， 返回结果接近0说明无相关，大于0说明是正相关，小于0是负相关
-data_corr = data.corr()
-# 画出特征相关性的热力图
-sns.set()
-a = plt.figure('特征相关性热力图')
-ax = plt.subplot(111)
-heat_map = sns.heatmap(data_corr, vmin=-1, vmax=1, annot=True, square=True)
-plt.plot(10,6)
-plt.show()
-plt.close()
+dtypes = {
+        'ip'            : 'uint32',
+        'app'           : 'uint16',
+        'device'        : 'uint16',
+        'os'            : 'uint16',
+        'channel'       : 'uint16',
+        'is_attributed' : 'uint8',
+        'click_id'      : 'uint32'
+        }
 
-# 通过上边的热力图发现ip和is_attributed之间关系比较大
-data[['ip', 'is_attributed']].groupby(['ip'])
+print('loading train data...')
+train_df = pd.read_csv("/Users/liudong/Desktop/talkingdata/train_sample.csv", skiprows=range(1,144903891), nrows=40000000, dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'is_attributed'])
 
+print('loading test data...')
+test_df = pd.read_csv("/Users/liudong/Desktop/talkingdata/test.csv", dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'click_id'])
 
+len_train = len(train_df)
+train_df=train_df.append(test_df)
 
+del test_df
+gc.collect()
 
-print(data[:10])
-print(data_corr)
+print('Extracting new features...')
+train_df['hour'] = pd.to_datetime(train_df.click_time).dt.hour.astype('uint8')
+train_df['day'] = pd.to_datetime(train_df.click_time).dt.day.astype('uint8')
+
+gc.collect()
+print('grouping by ip-day-hour combination...')
+gp = train_df[['ip','day','hour','channel']].groupby(by=['ip','day','hour'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_tcount'})
+train_df = train_df.merge(gp, on=['ip','day','hour'], how='left')
+print(gp)
+print(train_df)
+del gp
+gc.collect()
