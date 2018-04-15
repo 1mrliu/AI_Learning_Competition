@@ -1,6 +1,8 @@
 import time
 import pandas as pd
 import lightgbm as lgb
+import xgboost as xgb
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.metrics import log_loss
@@ -9,23 +11,17 @@ import gc
 import warnings
 
 
-
-
-# 设置warnings不可见
 warnings.filterwarnings("ignore")
 
 
-
-# 转换日期方法
 def timestamp_datetime(value):
     format = '%Y-%m-%d %H:%M:%S'
     value = time.localtime(value)
     dt = time.strftime(format, value)
     return dt
 
-# 对日期的值进行处理
+
 def convert_data(data):
-    # context_timestamp 表示广告商品的展示时间
     data['time'] = data.context_timestamp.apply(timestamp_datetime)
     # time  2018-09-18 10:09:04   day 8-9   hour 11-12
     data['day'] = data.time.apply(lambda x: int(x[8:10]))
@@ -37,11 +33,11 @@ def convert_data(data):
     user_query_day_hour = data.groupby(['user_id', 'day', 'hour']).size().reset_index().rename(
         columns={0:'user_query_day_hour'})
     data = pd.merge(data, user_query_day_hour, 'left', on=['user_id', 'day', 'hour'])
-
+    print(data)
     return data
 
 
-# 处理category_list，进行分割数据
+
 def deal_category_list(data):
     lbl = preprocessing.LabelEncoder ()
 
@@ -60,9 +56,9 @@ def deal_category_list(data):
 
     print('>>>>>>>>>user>>>>>>>>>>>')
     data['user_gender'] = data['user_gender_id'].apply(lambda x: 1 if x==-1 else 2)
-    data['user_age'] = data['user_age_level'].apply(lambda x: x-1000 if x>=1000 else 0)
-    data['user_star'] = data['user_star_level'].apply(lambda x: x-3000 if x >=3000 else 0)
-
+    data['user_age'] = data['user_age_level'].apply(lambda x: x-1000 if x >1000  else 2)
+    data['user_star'] = data['user_star_level'].apply(lambda x: 1 if x ==3000 | x == -1 else  2)
+    data['user_occupation'] = data['user_occupation_id'].apply(lambda x:1 if x ==-1 |x==2003 else 2 )
     print ('>>>>>>>>>>>>context>>>>>>>>>>>>>')
     for i in range(5):
         data['predict_category_property' + str (i)] = lbl.fit_transform (data['predict_category_property'].map (
@@ -80,15 +76,13 @@ def deal_category_list(data):
     return data
 
 
-# 缺失值处理函数
+
 def set_missing_feature(train_for_missingkey, data, info):
     known_feature = train_for_missingkey[train_for_missingkey.Age.notnull()].as_matrix()
     unknown_feature = train_for_missingkey[train_for_missingkey.Age.isnull()].as_matrix()
-    y = known_feature[:, 0] # 第1列作为待补全属性
-    x = known_feature[:, 1:] # 第2列及之后的属性作为预测属性
-    # 随机森林回归  第一个参数是随机数  第二个参数是在森林中树的个数
+    y = known_feature[:, 0]
+    x = known_feature[:, 1:]
     rf = RandomForestRegressor(random_state=0, n_estimators=2000, n_jobs=-1)
-    # 从训练集建立森林
     rf.fit(x, y)
     print(info, "缺失值预测得分", rf.score(x, y))
     predictage = rf.predict(unknown_feature[:, 1:])
@@ -98,7 +92,7 @@ def set_missing_feature(train_for_missingkey, data, info):
 
 if __name__ == "__main__":
     online = False
-    # False 线下验证    True线上测评
+    # False     True
     data = pd.read_csv('/Users/liudong/Desktop/round1_ijcai_18_train_20180301.txt', sep=' ')
     data.drop_duplicates(inplace=True)
     data = convert_data(data)
@@ -127,7 +121,6 @@ if __name__ == "__main__":
     data = data.merge (gp, on=['hour', 'item_collected_level'], how='left')
     del gp
     gc.collect ()
-    # list (map (lambda x, y: merge_corr (x, y), data['hour'], data['item_collected_level']))
 
     # 用户性别和广告商品的品牌
     print ('Merge  用户性别、职业、广告商品的品牌 structure!!!')
@@ -184,9 +177,9 @@ if __name__ == "__main__":
 
     if online == False:
         # 线下预测
-        train, test = train_test_split(data, test_size= 0.3, random_state=1)
-        #train = data.loc[data.day < 24]
-        #test = data.loc[data.day == 24]
+        # train, test = train_test_split(data, test_size= 0.3, random_state=1)
+        train = data.loc[data.day < 24]
+        test = data.loc[data.day == 24]
     else:
         # 线上提交
         train = data.copy()
@@ -234,7 +227,6 @@ if __name__ == "__main__":
         gp = test[['item_brand_id', 'item_city_id', 'item_sales_level']].groupby (by=['item_brand_id', 'item_city_id'])[
             ['item_sales_level']].var ().reset_index ().rename (index=str,
                                                                 columns={'item_sales_level': 'item_brand_city_sales'})
-
         test = test.merge (gp, on=['item_brand_id', 'item_city_id'], how='left')
         del gp
         gc.collect ()
@@ -264,12 +256,10 @@ if __name__ == "__main__":
 
         # 上下文 展示时间和出现在展示页编号的可能性 mean()
         print ('Merge context structure!!!')
-
-        gp = \
-            test[['context_id', 'day', 'item_pv_level', 'hour', 'context_page0']].groupby (
+        gp = test[['context_id', 'day', 'item_pv_level', 'hour', 'context_page0']].groupby (
                 by=['context_id', 'day', 'item_pv_level', 'hour'])[
                 ['context_page0']].mean ().reset_index ().rename (index=str,
-                                                                  columns={'context_page0': 'context_day_hour_page'})
+                columns={'context_page0': 'context_day_hour_page'})
         test = test.merge (gp, on=['context_id', 'day', 'item_pv_level', 'hour'], how='left')
         del gp
         gc.collect ()
@@ -281,8 +271,9 @@ if __name__ == "__main__":
             'item_id', 'item_city_id', 'item_price_level',
             'item_sales_level', 'item_collected_level', 'item_pv_level',
             # user
-            'user_id', 'user_gender', 'user_age',
-            'user_occupation_id', 'user_star',
+            'user_id', 'user_gender', 'user_age','user_star','user_occupation',
+            #'user_occupation_id',
+
             # shop
             'shop_id', 'shop_review_num', 'shop_review_positive_rate', 'shop_star_level',
             # context
@@ -290,7 +281,7 @@ if __name__ == "__main__":
             # 组合特征
             'price_occupation','context_timestamp_collected','user_sex_brand',
             'item_brand_city_sales','user_gender_age_occupation','shop_service_delivery_review',
-             'context_day_hour_page',
+            'context_day_hour_page',
     ]
 
     target = ['is_trade']
@@ -305,12 +296,28 @@ if __name__ == "__main__":
         # 0.0883036  0.082581 0.082731 0.082712 0.0826939 0.08265261
         # 0.08249014913824299
         # 0.08310587911174343 0.08277456472253032 0.08270059707857665
-        # 0.08907416747722012 0.08921627287514136
-        # 0.07418884461238258 训练集添加is_trade特征的结果最优 出现过拟合状态
+        # 0.08308572056156782
+        # 0.08319361060404155
+        xgbClassifier = xgb.XGBClassifier (learning_rate=0.1, n_estimators=234, max_depth=6,
+                                           min_child_weight=5, subsample=0.8, colsample_bytree=0.8,
+                                           objective='binary:logistic', scale_pos_weight=1)
+        xgbClassifier.fit(train[features].as_matrix(), train[target].as_matrix())
+        test['lgb_predict'] = xgbClassifier.predict_proba (test[features].as_matrix(), )[:, 1]
+        print ('XGB出现的误差是：', log_loss (test[target], test['lgb_predict']))
+        # 0.08295954851694197 0.08293560057259546
+
+
 
     else:
 
         clf = lgb.LGBMClassifier(num_leaves=63, max_depth=7, n_estimators=80, n_jobs=20)
         clf.fit(train[features], train[target], feature_name=features, categorical_feature=['user_gender', ])
         test['predicted_score'] = clf.predict_proba(test[features])[:, 1]
-        test[['instance_id', 'predicted_score']].to_csv('baseline.csv', index=False, sep=' ')
+        test[['instance_id', 'predicted_score']].to_csv('baseline_lgb.csv', index=False, sep=' ')
+
+        xgbClassifier = xgb.XGBClassifier (learning_rate=0.1, n_estimators=234, max_depth=6,
+                                           min_child_weight=5, subsample=0.8, colsample_bytree=0.8,
+                                           objective='binary:logistic', scale_pos_weight=1)
+        xgbClassifier.fit (train[features].as_matrix (), train[target].as_matrix ())
+        test['lgb_predict'] = xgbClassifier.predict_proba (test[features].as_matrix (), )[:, 1]
+        test[['instance_id', 'predicted_score']].to_csv ('baseline_xgb.csv', index=False, sep=' ')
