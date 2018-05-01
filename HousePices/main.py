@@ -5,12 +5,15 @@ __date__ = '2018/4/23 下午2:28'
 import pandas as pd
 import lightgbm as lgb
 
+
 # 加载数据
 df_train = pd.read_csv('/Users/liudong/Desktop/house_price/train.csv')
 df_test  = pd.read_csv('/Users/liudong/Desktop/house_price/test.csv')
 print(df_train.columns)
 
+
 # 对数据中的特征进行处理
+
 features = [ 'MSSubClass',  'LotFrontage', 'LotArea',
        'OverallQual', 'OverallCond', 'YearBuilt', 'YearRemodAdd',
        'MasVnrArea','BsmtFinSF1','BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF',

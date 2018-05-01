@@ -115,7 +115,7 @@ del gp
 gc.collect()
 
 
-# Adding features with var and mean hour (inspired from nuhsikander's script)
+# Adding features with var and mean hour
 print('grouping by : ip_day_chl_var_hour')
 gp = train_df[['ip','day','hour','channel']].groupby(by=['ip','day','channel'])[['hour']].var().reset_index().rename(index=str, columns={'hour': 'ip_tchan_count'})
 train_df = train_df.merge(gp, on=['ip','day','channel'], how='left')

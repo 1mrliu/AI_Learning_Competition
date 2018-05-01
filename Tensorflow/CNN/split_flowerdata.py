@@ -18,6 +18,7 @@ OUTPUT_FILE = '/Users/liudong/Desktop/flower_photos/flower_processed_data.npy'
 VALIDATION_PERCENTAGE = 10
 TEST_PERCENTAGE = 10
 
+
 def create_image_lists(sess, testing_percentage, validation_percentage):
     sub_dirs = [x[0] for x in os.walk(INPUT_DATA)]
     is_root_dir = True
@@ -72,14 +73,17 @@ def create_image_lists(sess, testing_percentage, validation_percentage):
     np.random.shuffle(training_images)
     np.random.set_state(state)
     np.random.shuffle(training_labels)
-    return np.array([training_images, training_labels,
-                     validation_images, validation_labels,
-                     testing_images,testing_labels])
+    return np.asarray([training_images, training_labels,
+                      validation_images, validation_labels,
+                      testing_images,testing_labels])
+
+
 # 数据主整理程序
 def main():
     with tf.Session() as sess:
         processed_data = create_image_lists(
-            sess, TEST_PERCENTAGE,VALIDATION_PERCENTAGE)
+            sess, TEST_PERCENTAGE, VALIDATION_PERCENTAGE)
+        # 通过numpy格式保存处理后的数据
         np.save(OUTPUT_FILE, processed_data)
 if __name__ == '__main__':
     main()

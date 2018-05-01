@@ -2,6 +2,7 @@ import time
 import pandas as pd
 import lightgbm as lgb
 import xgboost as xgb
+from Tianchi_Competition.Alimama.BPNN import BPNeuralNetwork
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
@@ -9,6 +10,7 @@ from sklearn.metrics import log_loss
 from sklearn.ensemble import RandomForestRegressor
 import gc
 import warnings
+
 
 
 warnings.filterwarnings("ignore")
@@ -46,6 +48,7 @@ def deal_category_list(data):
         data['item_category_list' + str (i)] = lbl.fit_transform (data['item_category_list'].map (
             lambda x: str (str (x).split (';')[i]) if len (str(x).split (';')) > i else ''))  # item_category_list的第0列全部都一样
     del data['item_category_list']
+    # data['item_category_list_3'] = data['item_category_list'].apply (lambda x: int (x.split (';')[2]))
 
     for i in range(10):
         data['item_property_list' + str (i)] = lbl.fit_transform (data['item_property_list'].map (
@@ -91,7 +94,7 @@ def set_missing_feature(train_for_missingkey, data, info):
 
 
 if __name__ == "__main__":
-    online = False
+    online = True
     # False     True
     data = pd.read_csv('/Users/liudong/Desktop/round1_ijcai_18_train_20180301.txt', sep=' ')
     data.drop_duplicates(inplace=True)
@@ -170,10 +173,14 @@ if __name__ == "__main__":
     data = data.merge (gp, on=['context_id', 'day', 'item_pv_level','hour'], how='left')
     del gp
     gc.collect ()
+    # item_category
+
+
+
 
 
     print ("####################结束训练数据集特征融合#########################")
-    print(data[:10])
+    # print(data[:10])
 
     if online == False:
         # 线下预测
@@ -267,18 +274,20 @@ if __name__ == "__main__":
 
     features = [
             'instance_id',
-            # item
+            # item 10
             'item_id', 'item_city_id', 'item_price_level',
             'item_sales_level', 'item_collected_level', 'item_pv_level',
-            # user
+            'item_category_list2','item_category_list1',
+            'item_property_list3','item_property_list4',
+            # user 5
             'user_id', 'user_gender', 'user_age','user_star','user_occupation',
             #'user_occupation_id',
 
-            # shop
+            # shop 4
             'shop_id', 'shop_review_num', 'shop_review_positive_rate', 'shop_star_level',
-            # context
-            'context_id','context_page_id','predict_category_property3','predict_category_property4',
-            # 组合特征
+            # context 3
+            'context_id','context_page_id','predict_category_property3',
+            # 组合特征 7
             'price_occupation','context_timestamp_collected','user_sex_brand',
             'item_brand_city_sales','user_gender_age_occupation','shop_service_delivery_review',
             'context_day_hour_page',
@@ -289,7 +298,7 @@ if __name__ == "__main__":
     if online == False:
         print ('--------Start LGB_Model-------')
         # num_leaves=70, max_depth=8, n_estimators=90, n_jobs=20
-        clf = lgb.LGBMClassifier(num_leaves=100, max_depth=9, n_estimators=100, n_jobs=20)
+        clf = lgb.LGBMClassifier(num_leaves=63, max_depth=7, n_estimators=80, n_jobs=20)
         clf.fit (train[features], train[target], feature_name=features, categorical_feature=['user_gender', ])
         test['lgb_predict'] = clf.predict_proba(test[features], )[:, 1]
         print('LGB出现的误差是：', log_loss(test[target], test['lgb_predict']))
@@ -297,16 +306,15 @@ if __name__ == "__main__":
         # 0.08249014913824299
         # 0.08310587911174343 0.08277456472253032 0.08270059707857665
         # 0.08308572056156782
-        # 0.08319361060404155
-        xgbClassifier = xgb.XGBClassifier (learning_rate=0.1, n_estimators=234, max_depth=6,
+        # 0.08319361060404155 082664788044012
+        xgbClassifier = xgb.XGBClassifier (learning_rate=0.03, n_estimators=234, max_depth=8,
                                            min_child_weight=5, subsample=0.8, colsample_bytree=0.8,
                                            objective='binary:logistic', scale_pos_weight=1)
         xgbClassifier.fit(train[features].as_matrix(), train[target].as_matrix())
         test['lgb_predict'] = xgbClassifier.predict_proba (test[features].as_matrix(), )[:, 1]
         print ('XGB出现的误差是：', log_loss (test[target], test['lgb_predict']))
-        # 0.08295954851694197 0.08293560057259546
-
-
+        # 0.08295954851694197 0.08293560057259546 0.08289581958892668  0.08269905777428682
+        # 0.08248661765022755 0.082439851107121
 
     else:
 
@@ -315,7 +323,7 @@ if __name__ == "__main__":
         test['predicted_score'] = clf.predict_proba(test[features])[:, 1]
         test[['instance_id', 'predicted_score']].to_csv('baseline_lgb.csv', index=False, sep=' ')
 
-        xgbClassifier = xgb.XGBClassifier (learning_rate=0.1, n_estimators=234, max_depth=6,
+        xgbClassifier = xgb.XGBClassifier (learning_rate=0.03, n_estimators=234, max_depth=8,
                                            min_child_weight=5, subsample=0.8, colsample_bytree=0.8,
                                            objective='binary:logistic', scale_pos_weight=1)
         xgbClassifier.fit (train[features].as_matrix (), train[target].as_matrix ())

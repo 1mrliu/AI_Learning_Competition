@@ -1,5 +1,6 @@
 import math
 import random
+import pandas as pd
 
 random.seed(0)
 
@@ -118,19 +119,24 @@ class BPNeuralNetwork:
                 error += self.back_propagate(case, label, learn, correct)
 
     def test(self, cases, labels, predict_x):
-        # cases = [
-        #     [0, 0],
-        #     [0, 1],
-        #     [1, 0],
-        #     [1, 1],
-        # ]
-        # labels = [[0], [1], [1], [0]]
+
         self.setup(30, 5, 1)
         self.train(cases, labels, 10000, 0.05, 0.1)
         for case in predict_x:
-            return  self.predict(case)
+            print(self.predict(case))
 
 
 if __name__ == '__main__':
+    # cases = [
+    #     [0, 0],
+    #     [0, 1],
+    #     [1, 0],
+    #     [1, 1],
+    # ]
+    # labels = [[0], [1], [1], [0]]
+    train = pd.read_csv('/Users/liudong/Desktop/train.csv')
+    print(train)
+    labels = train['is_click']
+    test = pd.read_csv('/Users/liudong/Desktop/test.csv')
     nn = BPNeuralNetwork()
-    nn.test()
+    nn.test(train, labels, test)
