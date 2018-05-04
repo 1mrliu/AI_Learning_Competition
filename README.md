@@ -1,4 +1,3 @@
-# Kaggle_Competition
 ## 记录做比赛和AI学习的相关知识
 ## Kaggle的比赛代码和思路
 * 1.Kaggle的比赛比较具有参考性 
