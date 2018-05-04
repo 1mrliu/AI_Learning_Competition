@@ -3,10 +3,10 @@ __author__ = 'liudong'
 __date__ = '2018/5/3 下午8:07'
 import codecs
 import sys
-
-RAW_DATA = "/Users/liudong/Desktop/simple-examples/data/ptb.train.txt"
+# 转换train test valid
+RAW_DATA = "/Users/liudong/Desktop/simple-examples/data/ptb.valid.txt"
 VOCAB = "ptb.vocab"
-OUTPUT_DATA = "ptb.train"
+OUTPUT_DATA = "ptb.valid"
 
 
 # 读取词汇表  并建立词汇到单词编号的映射

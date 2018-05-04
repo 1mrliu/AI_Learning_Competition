@@ -101,7 +101,7 @@ def run_eval(sess, test_X, test_y):
 # 执行训练和测试
 # 将训练数据以数据集的方式提供给计算图。
 ds = tf.data.Dataset.from_tensor_slices((train_X, train_y))
-ds = ds.repeat().shuffle (1000).batch(BATCH_SIZE)
+ds = ds.repeat().shuffle(1000).batch(BATCH_SIZE)
 X, y = ds.make_one_shot_iterator().get_next ()
 
 # 定义模型，得到预测结果、损失函数，和训练操作。
