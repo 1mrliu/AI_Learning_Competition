@@ -29,23 +29,6 @@ def load_data(train_path, test_path):
     return train_data, test_data
 
 
-def output_submission(test_ids, predictions, id_column, predction_column, file_name):
-    """
-    输出结果
-    :param test_ids: vector with test dataset ids
-    :param predictions: vector with test dataset predictions
-    :param id_column: name of the output id column
-    :param predction_column: name of the output predction column
-    :param file_name: string for the output file name
-    :return: output a csv with ids ands predictions
-    """
-    print('Outputting submission...')
-    with open('submissions/' + file_name, 'w') as submission:
-        writer = csv.writer(submission)
-        writer.writerow([id_column, predction_column])
-        for test_id, test_prediction in zip(test_ids, predictions):
-            writer.writerow([test_id, test_prediction])
-    print('Output complete')
 
 
 def pre_process_data(df):
