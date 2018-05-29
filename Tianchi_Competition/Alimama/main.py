@@ -107,7 +107,7 @@ if __name__ == "__main__":
     print ('Merge 商品价格 品牌 用户职业 销量   structure!!!')
     gp = data[['item_price_level', 'item_brand_id', 'user_occupation_id','item_sales_level']].groupby (
         by=['item_price_level', 'item_brand_id', 'user_occupation_id'])[
-        ['item_sales_level']].std().reset_index ().rename (index=str,
+        ['item_sales_level']].std().reset_index ().rename(index=str,
                                                             columns={'item_sales_level': 'price_occupation'})
     data = data.merge (gp, on=['item_price_level', 'item_brand_id', 'user_occupation_id'], how='left')
     del gp
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     print ('Merge  广告商品的展示时间 收藏 销量 structure!!!')
     gp = data[['hour', 'item_collected_level', 'item_sales_level']].groupby (
         by=['hour', 'item_collected_level'])[
-        ['item_sales_level']].std().reset_index ().rename (index=str,
+        ['item_sales_level']].std().reset_index ().rename(index=str,
                                                          columns={'item_sales_level': 'context_timestamp_collected'})
     data = data.merge (gp, on=['hour', 'item_collected_level'], how='left')
     del gp
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     gp = data[['item_brand_id', 'item_city_id', 'item_sales_level']].groupby (by=['item_brand_id', 'item_city_id'])[
         ['item_sales_level']].var().reset_index ().rename (index=str, columns={'item_sales_level': 'item_brand_city_sales'})
 
-    data = data.merge (gp, on=['item_brand_id', 'item_city_id'], how='left')
+    data = data.merge(gp, on=['item_brand_id', 'item_city_id'], how='left')
     del gp
     gc.collect()
 
