@@ -4,6 +4,7 @@ __date__ = '2018/6/17 上午 9:00'
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from sklearn.metrics import roc_auc_score
 from sklearn.cross_validation import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 '''
@@ -163,7 +164,7 @@ app_both = pd.concat([app_train_df,app_test_df])
 merge_df = feature_engineering(app_both, bureau_df,bureau_balance_df,credit_card_df,pos_cash_df,prev_app_df,
                                install_df)
 # 分离metadata
-meta_cols = ['SKI_ID_CURR', 'SK_ID_BUREAU','SK_ID_PREV']
+meta_cols = ['SK_ID_CURR', 'SK_ID_BUREAU','SK_ID_PREV']
 meta_df = merge_df[meta_cols]
 merge_df.drop(meta_cols, axis=1, inplace=True)
 
@@ -348,3 +349,71 @@ with tf.name_scope('eval'):
 # 初始化节点并保存
 init = tf.global_variables_initializer()
 saver = tf.train.Saver()
+
+def get_feed_dict(cat_feats_idx, cat_placeholders, cont_feats_idx, batch_X, batch_y=None,
+                  training=False):
+    '''
+    return a feed dict for the graph including all the categorical fetures to embed
+    '''
+    feed_dict = {X_cont:batch_X[:, cont_feats_idx]}
+    if batch_y is not None:
+        feed_dict[y] = batch_y
+
+    # Loop through the categorical features to provide values for the palceholders
+    for idx, tensor in zip(cat_feats_idx,cat_placeholders):
+        feed_dict[tensor] = batch_X[:, idx].reshape(-1, ).astype(int)
+
+    # Training mode or not
+    feed_dict[train_mode] = training
+
+    return feed_dict
+
+train_auc, valid_auc = [], []
+n_rounds_not_improved = 0
+early_stopping_epochs = 2
+with tf.Session() as sess:
+    init.run()
+    # begin epoch loop
+    print('Training for {} iterations over {} epochs with batchsize {] ...'.format(N_ITERATIONS, N_EPOCHS,BATCH_SIZE))
+    for epoch in range(N_EPOCHS):
+        for iteration in range(N_ITERATIONS):
+            # Get random selection of data for batch GD. Upsample positive classes to make it
+            # balanced in the training batch
+            pos_ratio = 0.5
+            pos_idx = np.random.choice(np.where(y_train[:, 1] == 1)[0],size=int(np.round(BATCH_SIZE*pos_ratio)))
+            neg_idx = np.random.choice(np.where(y_train[:, 1] == 0)[0],size=int(np.round(BATCH_SIZE*(1-pos_ratio))))
+            idx = np.concatenate([pos_idx, neg_idx])
+
+            # run training
+            extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            sess.run([train_step, extra_update_ops],
+                     feed_dict=get_feed_dict(cat_feats_idx,cat_placeholders,cont_feats_idx,
+                                             X_train[idx,:], y_train[idx,:], 1))
+        # AUC
+        y_pred_train, y_prob_train =sess.run([predict, predict_proba],
+                                         feed_dict=get_feed_dict(cat_feats_idx,cat_placeholders,cont_feats_idx,
+                                                                 X_train,y_train,False))
+        train_auc.append(roc_auc_score(y_train[:, 1], y_prob_train[:,1]))
+        y_pred_val, y_prob_val = sess.run([predict,  predict_proba],
+                                      feed_dict=get_feed_dict(cat_feats_idx,cat_placeholders,cont_feats_idx,
+                                                              X_valid,y_valid, False))
+        valid_auc.append(roc_auc_score(y_valid[:,1], y_prob_val[:,1]))
+
+        # early stopping
+        if epoch > 1:
+           best_epoch_so_far = np.argmax(valid_auc[:-1])
+           if valid_auc[epoch] <= valid_auc[best_epoch_so_far]:
+              n_rounds_not_improved += 1
+           else:
+              n_rounds_not_improved = 0
+           if n_rounds_not_improved > early_stopping_epochs:
+              print('Early stopping due to no improvement after {} epochs'.format(early_stopping_epochs))
+              break
+        print('Epoch = {}, Train AUC = {:.8f}, Valid AUC = {:.8f}'.format(epoch, train_auc[epoch],valid_auc[epoch]))
+    # once trained make prediction
+    print('Training complete')
+    y_prob = sess.run(predict_proba,feed_dict=get_feed_dict(
+        cat_feats_idx, cat_placeholders,cont_feats_idx, predict_df, None, False))
+
+out_df = pd.DataFrame({'SK_ID_CURR': meta_df['SK_ID_CURR'][len_train:], 'TARGET': y_prob[:, 1]})
+out_df.to_csv('nn_submission.csv', index=False)
