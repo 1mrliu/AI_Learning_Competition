@@ -204,7 +204,7 @@ def rmsle_cv(model):
 
 # 模型的选择和使用
 # LASSO Regression :
-lasso = make_pipel+ine(RobustScaler(), Lasso(alpha=0.0005, random_state=1))
+lasso = make_pipeline(RobustScaler(), Lasso(alpha=0.0005, random_state=1))
 # Elastic Net Regression 弹性网回归
 ENet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
 # Kernel Ridge Regression 岭回归 alpha超参数
