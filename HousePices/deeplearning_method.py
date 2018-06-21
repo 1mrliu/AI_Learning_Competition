@@ -39,7 +39,6 @@ def pre_process_data(df):
     """
     # one-hot encode categorical values
     df = pd.get_dummies(df)
-
     return df
 
 
@@ -73,6 +72,7 @@ def mini_batches(train_set, train_labels, mini_batch_size):
 
 def create_placeholders(input_size, output_size):
     """
+    输入数据的格式
     Creates the placeholders for the tensorflow session.
     :param input_size: scalar, input size
     :param output_size: scalar, output size
@@ -88,6 +88,7 @@ def create_placeholders(input_size, output_size):
 
 def forward_propagation(x, parameters, keep_prob=1.0, hidden_activation='relu'):
     """
+    前向传播算法
     Implement forward propagation with dropout for the [LINEAR->RELU]*(L-1)->LINEAR-> computation
     :param x: data, pandas array of shape (input size, number of examples)
     :param parameters: output of initialize_parameters()
@@ -112,7 +113,8 @@ def forward_propagation(x, parameters, keep_prob=1.0, hidden_activation='relu'):
 
 
 def linear_activation_forward(a_prev, w, b, activation):
-    """
+    """ 
+    激活函数实现去线性化
     Implement the forward propagation for the LINEAR->ACTIVATION layer
     :param a_prev: activations from previous layer (or input data): (size of previous layer, number of examples)
     :param w: weights matrix: numpy array of shape (size of current layer, size of previous layer)
@@ -158,6 +160,7 @@ def initialize_parameters(layer_dims):
 
 def compute_cost(z3, y):
     """
+    计算损失函数
     :param z3: output of forward propagation (output of the last LINEAR unit)
     :param y: "true" labels vector placeholder, same shape as Z3
     :return: Tensor of the cost function (RMSE as it is a regression)
@@ -414,6 +417,7 @@ def model(train_set, train_labels, validation_set, validation_labels, layers_dim
 
         train_rmse = rmse(predict(train_set, parameters), train_labels)
         validation_rmse = rmse(predict(validation_set, parameters), validation_labels)
+        print("Metric by the rmsle==========")
         train_rmsle = rmsle(predict(train_set, parameters), train_labels)
         validation_rmsle = rmsle(predict(validation_set, parameters), validation_labels)
 
@@ -422,7 +426,7 @@ def model(train_set, train_labels, validation_set, validation_labels, layers_dim
         print('Train rmsle: {:.4f}'.format(train_rmsle))
         print('Validation rmsle: {:.4f}'.format(validation_rmsle))
 
-        submission_name = 'tr_cost-{:.2f}-vd_cost{:.2f}-'.format(train_rmse, validation_rmse) + submission_name
+        submission_name = 'train_cost-{:.2f}-validation_cost{:.2f}-'.format(train_rmse, validation_rmse) + submission_name
 
         if return_best is True:
             print('Lowest rmse: {:.2f} at epoch {}'.format(best_iteration[0], best_iteration[1]))
@@ -432,59 +436,60 @@ def model(train_set, train_labels, validation_set, validation_labels, layers_dim
 
         return parameters, submission_name
 
-TRAIN_PATH = '/Users/liudong/Desktop/house_price/train.csv'
-TEST_PATH = '/Users/liudong/Desktop/house_price/test.csv'
+if __name__ == "__main__":
+    TRAIN_PATH = '/Users/liudong/Desktop/house_price/train.csv'
+    TEST_PATH = '/Users/liudong/Desktop/house_price/test.csv'
 
-train, test = load_data(TRAIN_PATH, TEST_PATH)
+    train, test = load_data(TRAIN_PATH, TEST_PATH)
 
-# get the labels values
-train_raw_labels = train['SalePrice'].to_frame().as_matrix()
+    # get the labels values
+    train_raw_labels = train['SalePrice'].to_frame().as_matrix()
 
-# pre process data sets
-train_pre = pre_process_data(train)
-test_pre = pre_process_data(test)
+    # pre process data sets
+    train_pre = pre_process_data(train)
+    test_pre = pre_process_data(test)
 
-# drop unwanted columns
-train_pre = train_pre.drop(['Id', 'SalePrice'], axis=1)
-test_pre = test_pre.drop(['Id'], axis=1)
+    # drop unwanted columns
+    train_pre = train_pre.drop(['Id', 'SalePrice'], axis=1)
+    test_pre = test_pre.drop(['Id'], axis=1)
 
-# align both data sets (by outer join), to make they have the same amount of features,
-# this is required because of the mismatched categorical values in train and test sets
-train_pre, test_pre = train_pre.align(test_pre, join='outer', axis=1)
+    # align both data sets (by outer join), to make they have the same amount of features,
+    # this is required because of the mismatched categorical values in train and test sets
+    train_pre, test_pre = train_pre.align(test_pre, join='outer', axis=1)
 
-# replace the nan values added by align for 0
-train_pre.replace(to_replace=np.nan, value=0, inplace=True)
-test_pre.replace(to_replace=np.nan, value=0, inplace=True)
+    # replace the nan values added by align for 0
+    train_pre.replace(to_replace=np.nan, value=0, inplace=True)
+    test_pre.replace(to_replace=np.nan, value=0, inplace=True)
 
-train_pre = train_pre.as_matrix().astype(np.float)
-test_pre = test_pre.as_matrix().astype(np.float)
+    train_pre = train_pre.as_matrix().astype(np.float)
+    test_pre = test_pre.as_matrix().astype(np.float)
 
-# scale values
-standard_scaler = preprocessing.StandardScaler()
-train_pre = standard_scaler.fit_transform(train_pre)
-test_pre = standard_scaler.fit_transform(test_pre)
+    # scale values
+    standard_scaler = preprocessing.StandardScaler()
+    train_pre = standard_scaler.fit_transform(train_pre)
+    test_pre = standard_scaler.fit_transform(test_pre)
 
-X_train, X_valid, Y_train, Y_valid = train_test_split(train_pre, train_raw_labels, test_size=0.3, random_state=1)
+    X_train, X_valid, Y_train, Y_valid = train_test_split(train_pre, train_raw_labels, test_size=0.3, random_state=1)
 
-# 模型的超参数设置
-input_size = train_pre.shape[1]
-output_size = 1
-num_epochs = 10000
-learning_rate = 0.01
-layers_dims = [input_size, 500, 500, output_size]
-parameters, submission_name = model(X_train, Y_train, X_valid, Y_valid, layers_dims, num_epochs=num_epochs,
+    # 模型的超参数设置
+    input_size = train_pre.shape[1]
+    output_size = 1
+    num_epochs = 10000
+    learning_rate = 0.01
+    layers_dims = [input_size, 500, 500, output_size]
+    parameters, submission_name = model(X_train, Y_train, X_valid, Y_valid, layers_dims, num_epochs=num_epochs,
                                     learning_rate=learning_rate, print_cost=True, plot_cost=True, l2_beta=10,
                                     keep_prob=0.7, minibatch_size=0, return_best=True)
 
-print(submission_name)
-prediction = list(map(lambda val: float(val), predict(test_pre, parameters)))
-# uncomment if label was log transformed
-# prediction = list(map(lambda val: np.expm1(val), prediction))
-# output_submission(test.Id.values, prediction, 'Id', 'SalePrice', submission_name)
-# 保存结果
-result = pd.DataFrame()
-result['Id'] = test.Id.values
-result['SalePrice'] = prediction
-# index=False 是用来除去行编号
-result.to_csv('/Users/liudong/Desktop/house_price/result1.csv', index=False)
-print('##########结束训练##########')
+    print(submission_name)
+    prediction = list(map(lambda val: float(val), predict(test_pre, parameters)))
+    # uncomment if label was log transformed
+    # prediction = list(map(lambda val: np.expm1(val), prediction))
+    # output_submission(test.Id.values, prediction, 'Id', 'SalePrice', submission_name)
+    # 保存结果
+    result = pd.DataFrame()
+    result['Id'] = test.Id.values
+    result['SalePrice'] = prediction
+    # index=False 是用来除去行编号
+    result.to_csv('/Users/liudong/Desktop/house_price/result1.csv', index=False)
+    print('##########结束训练##########')

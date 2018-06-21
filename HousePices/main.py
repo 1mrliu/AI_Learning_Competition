@@ -85,7 +85,6 @@ all_data.drop(['SalePrice'], axis=1, inplace=True)
 print("all_data size is : {}".format(all_data.shape))
 
 # 特征工程  对特征进行处理
-
 # 处理缺失数据
 print(all_data.isnull().sum())
 all_data_na = (all_data.isnull().sum() / len(all_data)) * 100
@@ -255,7 +254,7 @@ class AveragingModels(BaseEstimator, RegressorMixin, TransformerMixin):
             model.fit(X, y)
         return self
 
-    # 模型的预测 并取平均数
+    # 模型的预测 k-fold为预测的次数，将多列的数据合并，并取平均值
     def predict(self, X):
         # column_stack可以将多个列组合   [0,1],[2,3] 组合为 [[0,2],[1,3]]
         predictions = np.column_stack([model.predict (X) for model in self.models_])
@@ -279,34 +278,31 @@ class StackingAveragedModels (BaseEstimator, RegressorMixin, TransformerMixin):
         self.meta_model_ = clone(self.meta_model)
         kfold = KFold(n_splits=self.n_folds, shuffle=True, random_state=156)
 
-        # Train cloned base models then create out-of-fold predictions
-        # that are needed to train the cloned meta-model
+        # 使用K-fold的方法来进行交叉验证，将每次验证的结果作为新的特征来进行处理
         out_of_fold_predictions = np.zeros((X.shape[0], len(self.base_models)))
         for i, model in enumerate(self.base_models):
             for train_index, holdout_index in kfold.split(X, y):
                 instance = clone(model)
-                self.base_models_[i].append (instance)
+                self.base_models_[i].append(instance)
                 instance.fit(X[train_index],  y[train_index])
                 y_pred = instance.predict(X[holdout_index])
                 out_of_fold_predictions[holdout_index, i] = y_pred
 
-        # Now train the cloned  meta-model using the out-of-fold predictions as new feature
+        # 将交叉验证预测出的结果 和 训练集中的标签值进行训练
         self.meta_model_.fit(out_of_fold_predictions, y)
         return self
 
-    # Do the predictions of all base models on the test data and use the averaged predictions as
-    # meta-features for the final prediction which is done by the meta-model
+    # 从得到的新的特征  采用新的模型进行预测  并输出结果
     def predict(self, X):
         meta_features = np.column_stack ([
             np.column_stack([model.predict (X) for model in base_models]).mean (axis=1)
             for base_models in self.base_models_])
         return self.meta_model_.predict(meta_features)
 
-stacked_averaged_models = StackingAveragedModels(base_models=(ENet, GBoost, KRR),
-                                                      # meta_model=model_lgb)
-                                                      meta_model=lasso)
+stacked_averaged_models = StackingAveragedModels(base_models=(ENet, GBoost, KRR), # meta_model=model_lgb)
+                                                 meta_model=lasso)
 score = rmsle_cv(stacked_averaged_models)
-print("Stacking Averaged models score: {:.4f} ({:.4f})".format(score.mean (), score.std ()))
+print("Stacking Averaged models score: {:.4f} ({:.4f})".format(score.mean(), score.std()))
 # 均方根误差评价函数
 def rmsle(y, y_pred):
     return np.sqrt(mean_squared_error(y, y_pred))

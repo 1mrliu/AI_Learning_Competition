@@ -12,6 +12,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 '''
 
 # 加载数据
+
 sample_size =  None
 app_train_df = pd.read_csv('/Users/liudong/Downloads/credit/application_train.csv', nrows=sample_size)
 app_test_df = pd.read_csv('/Users/liudong/Downloads/credit/application_test.csv', nrows=sample_size)
@@ -26,26 +27,21 @@ print("Main application test data shape= {}".format(app_test_df.shape))
 print("Positive target proportion={}".format(app_train_df['TARGET'].mean()))
 
 
+# 将数据合并为一个DataFrame  通过SK_ID_CURR来进行合并
 def agg_and_merge(left_df, right_df, agg_method, right_suffix):
-    """ Aggregate a df by 'SK_ID_CURR' and merge it onto another.
-    This method allows feature name """
+    # agg 提供基于列的聚合操作，例如：sum mean count 等
+    agg_df = right_df.groupby('SK_ID_CURR').agg(agg_method)
+    # suffixes字符串值元组，用于追加到重叠列名的末尾,默认为_x,_y  例如：左右都有data， 结果中会出现data_x,data_y
+    # upper()函数将小写字母转换为大写  how='left' 左连接，左侧为全部数据，右侧为部分数据
+    merged_df = left_df.merge(agg_df, left_on='SK_ID_CURR', right_index=True, how='left',
+                               suffixes=['', '_' + right_suffix + agg_method.upper()])
 
-    agg_df = right_df.groupby ('SK_ID_CURR').agg (agg_method)
-    merged_df = left_df.merge (agg_df, left_on='SK_ID_CURR', right_index=True, how='left',
-                               suffixes=['', '_' + right_suffix + agg_method.upper ()])
     return merged_df
 
 
-# 处理数据
+# 对categoricals数据进行Label Encoder
 def process_dataframe(input_df, encoder_dict=None):
-    '''
-    Process dataframe into a form useable by LightGBM
-    :param input_df: 
-    :param encoder_dict: 
-    :return: 
-    '''
     categorical_feats = input_df.columns[input_df.dtypes == 'object']
-    categorical_feats = categorical_feats
     encoder_dict = {}
     for feat in categorical_feats:
         encoder = LabelEncoder()
@@ -53,54 +49,47 @@ def process_dataframe(input_df, encoder_dict=None):
         encoder_dict[feat] = encoder
     return input_df, categorical_feats.tolist(), encoder_dict
 
-# feature engineering
+
+# 特征工程进行处理
 def feature_engineering(app_data, bureau_df, bureau_balance_df,credit_card_df,pos_cash_df,prev_app_df,install_df):
     """
-    把所有的数据集合并为一个数据表
+    把所有的输入dataframe合并为一个包含所有特征的dataframe   同时增加新的特征
     """
-    #
+    # 借款比例  养老金比重
     app_data['LOAN_INCOME_RATIO'] = app_data['AMT_CREDIT'] / app_data['AMT_INCOME_TOTAL']
     app_data['ANNUITY_INCOME_RATIO'] = app_data['AMT_ANNUITY'] / app_data['AMT_INCOME_TOTAL']
-    # 总体的数量
     app_data['ANNUITY LENGTH'] = app_data['AMT_CREDIT'] / app_data['AMT_ANNUITY']
-    # 社会特征
-    app_data['WORKING_LIFE_RATIO'] = app_data['DAYS_EMPLOYED'] / app_data['DAYS_BIRTH']
-    app_data['INCOME_PER_FAM'] = app_data['AMT_INCOME_TOTAL'] / app_data['CNT_FAM_MEMBERS']
-    app_data['CHILDREN_RATIO'] = app_data['CNT_CHILDREN'] / app_data['CNT_FAM_MEMBERS']
-    # 用nan取代数字的值
-    prev_app_df['DAYS_LAST_DUE'].replace(365243, np.nan, inplace=True)
-    prev_app_df['DAYS_TERMINATION'].replace(365243, np.nan, inplace=True)
-    prev_app_df['DAYS_FIRST_DRAWING'].replace(365243, np.nan, inplace=True)
-    prev_app_df['DAYS_FIRST_DUE'].replace(365243, np.nan, inplace=True)
-    prev_app_df['DAYS_LAST_DUE_1ST_VERSION'].replace(365243, np.nan, inplace=True)
 
-    # Previous applications
-    print('Combined train & test input shape before any merging  = {}'.format(app_data.shape))
+    # 汇总合并并补充数据集
+    print ('Combined train & test input shape before any merging  = {}'.format (app_data.shape))
+
+    # 以前的申请数据
     agg_funs = {'SK_ID_CURR': 'count', 'AMT_CREDIT': 'sum'}
-    prev_apps = prev_app_df.groupby('SK_ID_CURR').agg(agg_funs)
+    prev_apps = prev_app_df.groupby ('SK_ID_CURR').agg(agg_funs)
     prev_apps.columns = ['PREV APP COUNT', 'TOTAL PREV LOAN AMT']
     merged_df = app_data.merge(prev_apps, left_on='SK_ID_CURR', right_index=True, how='left')
-    # Average the rest of the previous app data
-    for agg_method in ['mean', 'max', 'min']:
-        merged_df = agg_and_merge(merged_df, prev_app_df, agg_method, 'PRV')
-    print ('Shape after merging with previous apps num data = {}'.format(merged_df.shape))
-    # Previous app categorical features
-    prev_app_df, cat_feats, _ = process_dataframe(prev_app_df)
-    prev_apps_cat_avg = prev_app_df[cat_feats + ['SK_ID_CURR']].groupby('SK_ID_CURR') \
+
+    # 平均以前剩余应用的其他数据成分
+    prev_apps_avg = prev_app_df.groupby ('SK_ID_CURR').mean ()
+    merged_df = merged_df.merge (prev_apps_avg, left_on='SK_ID_CURR', right_index=True,
+                                 how='left', suffixes=['', '_PAVG'])
+    print ('Shape after merging with previous apps num data = {}'.format (merged_df.shape))
+
+    # 以前APP的分类特征
+    prev_app_df, cat_feats, _ = process_dataframe (prev_app_df)
+    prev_apps_cat_avg = prev_app_df[cat_feats + ['SK_ID_CURR']].groupby ('SK_ID_CURR') \
         .agg ({k: lambda x: str (x.mode ().iloc[0]) for k in cat_feats})
-    merged_df = merged_df.merge(prev_apps_cat_avg, left_on='SK_ID_CURR', right_index=True,
+    merged_df = merged_df.merge (prev_apps_cat_avg, left_on='SK_ID_CURR', right_index=True,
                                  how='left', suffixes=['', '_BAVG'])
-    print ('Shape after merging with previous apps cat data = {}'.format(merged_df.shape))
-    # Credit card data - numerical features
+    print ('Shape after merging with previous apps cat data = {}'.format (merged_df.shape))
+
+    # 信用卡数据 - 数字特征
     wm = lambda x: np.average (x, weights=-1 / credit_card_df.loc[x.index, 'MONTHS_BALANCE'])
     credit_card_avgs = credit_card_df.groupby ('SK_ID_CURR').agg (wm)
     merged_df = merged_df.merge (credit_card_avgs, left_on='SK_ID_CURR', right_index=True,
-                                 how='left', suffixes=['', '_CC_WAVG'])
-    for agg_method in ['mean', 'max', 'min']:
-        merged_df = agg_and_merge (merged_df, credit_card_avgs, agg_method, 'CC')
-    print ('Shape after merging with previous apps num data = {}'.format (merged_df.shape))
+                                 how='left', suffixes=['', '_CCAVG'])
 
-    # Credit card data - categorical features
+    # 信用卡数据 - 分类特征
     most_recent_index = credit_card_df.groupby ('SK_ID_CURR')['MONTHS_BALANCE'].idxmax ()
     cat_feats = credit_card_df.columns[credit_card_df.dtypes == 'object'].tolist () + ['SK_ID_CURR']
     merged_df = merged_df.merge (credit_card_df.loc[most_recent_index, cat_feats], left_on='SK_ID_CURR',
@@ -108,9 +97,10 @@ def feature_engineering(app_data, bureau_df, bureau_balance_df,credit_card_df,po
                                  how='left', suffixes=['', '_CCAVG'])
     print ('Shape after merging with credit card data = {}'.format (merged_df.shape))
 
-    # Credit bureau data - numerical features
-    for agg_method in ['mean', 'max', 'min']:
-        merged_df = agg_and_merge (merged_df, bureau_df, agg_method, 'B')
+    # 信用局特征 - 数字特征
+    credit_bureau_avgs = bureau_df.groupby ('SK_ID_CURR').mean ()
+    merged_df = merged_df.merge (credit_bureau_avgs, left_on='SK_ID_CURR', right_index=True,
+                                 how='left', suffixes=['', '_BAVG'])
     print ('Shape after merging with credit bureau data = {}'.format (merged_df.shape))
 
     # Bureau balance data
@@ -128,10 +118,6 @@ def feature_engineering(app_data, bureau_df, bureau_balance_df,credit_card_df,po
     merged_df = merged_df.merge (cash_avg, left_on='SK_ID_CURR', right_index=True,
                                  how='left', suffixes=['', '_CAVG'])
 
-    # Unweighted aggregations of numeric features
-    for agg_method in ['mean', 'max', 'min']:
-        merged_df = agg_and_merge (merged_df, pos_cash_df, agg_method, 'PC')
-
     # Pos cash data data - categorical features
     most_recent_index = pos_cash_df.groupby ('SK_ID_CURR')['MONTHS_BALANCE'].idxmax ()
     cat_feats = pos_cash_df.columns[pos_cash_df.dtypes == 'object'].tolist () + ['SK_ID_CURR']
@@ -141,28 +127,28 @@ def feature_engineering(app_data, bureau_df, bureau_balance_df,credit_card_df,po
     print ('Shape after merging with pos cash data = {}'.format (merged_df.shape))
 
     # Installments data
-    for agg_method in ['mean', 'max', 'min']:
-        merged_df = agg_and_merge (merged_df, install_df, agg_method, 'I')
-    print ('Shape after merging with installments data = {}'.format (merged_df.shape))
+    ins_avg = install_df.groupby('SK_ID_CURR').mean ()
+    merged_df = merged_df.merge(ins_avg, left_on='SK_ID_CURR', right_index=True,
+                                 how='left', suffixes=['', '_IAVG'])
+    print('Shape after merging with installments data = {}'.format (merged_df.shape))
 
     # Add more value counts
-    merged_df = merged_df.merge (pd.DataFrame (bureau_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
+    merged_df = merged_df.merge(pd.DataFrame (bureau_df['SK_ID_CURR'].value_counts()), left_on='SK_ID_CURR',
                                  right_index=True, how='left', suffixes=['', '_CNT_BUREAU'])
-    merged_df = merged_df.merge (pd.DataFrame (credit_card_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
+    merged_df = merged_df.merge(pd.DataFrame (credit_card_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
                                  right_index=True, how='left', suffixes=['', '_CNT_CRED_CARD'])
-    merged_df = merged_df.merge (pd.DataFrame (pos_cash_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
+    merged_df = merged_df.merge(pd.DataFrame (pos_cash_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
                                  right_index=True, how='left', suffixes=['', '_CNT_POS_CASH'])
-    merged_df = merged_df.merge (pd.DataFrame (install_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
+    merged_df = merged_df.merge(pd.DataFrame (install_df['SK_ID_CURR'].value_counts ()), left_on='SK_ID_CURR',
                                  right_index=True, how='left', suffixes=['', '_CNT_INSTALL'])
-    print ('Shape after merging with counts data = {}'.format (merged_df.shape))
-
+    print('Shape after merging with counts data = {}'.format (merged_df.shape))
     return merged_df
 
 # 合并数据集为一个单独的训练集
 len_train = len(app_train_df)
 app_both = pd.concat([app_train_df,app_test_df])
-merge_df = feature_engineering(app_both, bureau_df,bureau_balance_df,credit_card_df,pos_cash_df,prev_app_df,
-                               install_df)
+merge_df = feature_engineering(app_both, bureau_df,bureau_balance_df,credit_card_df,pos_cash_df,prev_app_df,install_df)
+
 # 分离metadata
 meta_cols = ['SK_ID_CURR', 'SK_ID_BUREAU','SK_ID_PREV']
 meta_df = merge_df[meta_cols]
@@ -170,6 +156,7 @@ merge_df.drop(meta_cols, axis=1, inplace=True)
 
 # 处理数据集
 merge_df, categorical_feats, encoder_dict = process_dataframe(input_df=merge_df)
+
 # Capture other categorical features not as object data types:
 non_obj_categoricals = [
     'FONDKAPREMONT_MODE',
@@ -204,17 +191,22 @@ non_obj_categoricals = [
     'NAME_CONTRACT_STATUS_CAVG'
 ]
 categorical_feats = categorical_feats + non_obj_categoricals
+
 # 将 target 从数据集中去除  为了scaling
 labels = merge_df.pop('TARGET')
 labels = labels[:len_train]
+
 # reshape (one-hot)
+# zeros大小为[len(labels), len(np.unique(labels))]
 target = np.zeros([len(labels), len(np.unique(labels))])
 target[:, 0] = labels == 0
 target[:, 1] = labels == 1
-# 对数据集中的空数据进行处理
+
+# 统计数据集中空数据的比重
 null_counts = merge_df.isnull().sum()
 null_counts = null_counts[null_counts > 0]
 null_ratios = null_counts / len(merge_df)
+
 # 删除超过 x% 的空的数据
 null_thresh = .8
 null_cols = null_ratios[null_ratios > null_thresh].index
@@ -225,25 +217,30 @@ for col in null_cols:
     if col in categorical_feats:
         categorical_feats.pop(col)
 
+# 对空的数据进行填充
+merge_df.fillna(0,inplace=True)
+
 # 对分类的数据进行处理
 cat_feats_idx = np.array([merge_df.columns.get_loc(x) for x in categorical_feats])
 int_feats_idx = [merge_df.columns.get_loc(x) for x in non_obj_categoricals]
 cat_feats_lookup = pd.DataFrame({'feature': categorical_feats, 'columns_index': cat_feats_idx})
+
 cat_feats_lookup.head()
 
+# ~ 代表取反操作
 cont_feats_idx = np.array([merge_df.columns.get_loc(x)
-                           for x in merge_df.columns[-merge_df.columns.isin(categorical_feats)] ])
+                           for x in merge_df.columns[~merge_df.columns.isin(categorical_feats)] ])
 cont_feats_lookup = pd.DataFrame(
-    {'feature':merge_df.columns[-merge_df.columns.isin(categorical_feats)],
+    {'feature':merge_df.columns[~merge_df.columns.isin(categorical_feats)],
      'columns_index':cont_feats_idx}
 )
 cont_feats_lookup.head()
 
-# 对特征进行缩放 避免进行不同程度的加权
+# 对特征进行缩放
 scaler = StandardScaler()
 final_col_names = merge_df.columns
 merge_df = merge_df.values
-merge_df[:,cont_feats_idx] = scaler.fit_transform(merge_df[:, cont_feats_idx])
+merge_df[:, cont_feats_idx] = scaler.fit_transform(merge_df[:, cont_feats_idx])
 
 scaler2 = MinMaxScaler(feature_range=(0,1))
 merge_df[:, int_feats_idx] = scaler2.fit_transform(merge_df[:, int_feats_idx])
@@ -254,13 +251,13 @@ predict_df = merge_df[len_train:]
 del merge_df, app_train_df, app_test_df, bureau_df,bureau_balance_df, credit_card_df,pos_cash_df, prev_app_df
 
 # 验证集
-X_train, X_valid, y_train, y_valid = train_test_split(train_df, target, test_size=0.1, random_state=2,
-                                                      stratify=target[:, 0])
+X_train, X_valid, y_train, y_valid = train_test_split(train_df, target, test_size=0.1, random_state=2, stratify=target[:, 0])
 # 构造NN的输入图结构
 # graph的参数设置
 N_HIDDEN_1 = 80
 N_HIDDEN_2 = 80
 N_HIDDEN_3 = 40
+# 统计特征的个数
 n_cont_inputs = X_train[:, cont_feats_idx].shape[1]
 n_classes = 2
 
@@ -273,7 +270,9 @@ BATCH_SIZE = 250
 print('Number of continous features:', n_cont_inputs)
 print('Number of categoricals pre-embedding:', X_train[:, cat_feats_idx].shape[1])
 
+
 def embed_and_attach(X, X_cat, cardinality):
+    # random_uniform 返回的是矩阵
     embedding = tf.Variable(tf.random_uniform([cardinality, cardinality // 2], -1.0, 1.0))
     embedded_x = tf.nn.embedding_lookup(embedding, X_cat)
     return tf.concat([embedded_x, X], axis=1)
@@ -283,8 +282,8 @@ tf.reset_default_graph()
 # 为categorical variables  定义placeholder
 cat_placeholders, cat_cardinalities = [], []
 for idx in cat_feats_idx:
-    exec ('X_cat_{} = tf.palceholder(tf.int32,shape=(None,), name=\'X_cat_{}\''.format(idx,idx))
-    exec ('cat_placeholders.append(X_cat_{})'.format(idx))
+    exec('X_cat_{} = tf.placeholder(tf.int32,shape=(None,), name=\'X_cat_{}\''.format(idx,idx))
+    exec('cat_placeholders.append(X_cat_{})'.format(idx))
     cat_cardinalities.append(len(np.unique(np.concatenate([train_df[:, idx],predict_df[:, idx]],axis=0))))
 
 # other placeholders
@@ -335,23 +334,25 @@ with tf.name_scope('dnn'):
                              name='outputs')
 
 # 将交叉熵定义为损失函数
+# softmax分类器
 with tf.name_scope('loss'):
     xent = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y,logits=logits)
-    loss = tf.reduce_mean(xent, name='loss')
+    loss = tf.reduce_mean(xent, name='loss')# 对整个矩阵做平均
 # 定义优化器
 with tf.name_scope('train'):
     optimiser = tf.train.AdamOptimizer()
     train_step = optimiser.minimize(loss)
 # 评价  AUC
 with tf.name_scope('eval'):
+    # 返回tensor中logits最大的值
     predict = tf.argmax(logits, axis=1, name='class_predictions')
     predict_proba = tf.nn.softmax(logits, name='probability_predictions')
 # 初始化节点并保存
 init = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
-def get_feed_dict(cat_feats_idx, cat_placeholders, cont_feats_idx, batch_X, batch_y=None,
-                  training=False):
+
+def get_feed_dict(cat_feats_idx, cat_placeholders, cont_feats_idx, batch_X, batch_y=None, training=False):
     '''
     return a feed dict for the graph including all the categorical fetures to embed
     '''
