@@ -12,7 +12,7 @@ sys.setdefaultencoding('utf-8')  # 设置默认编码为utf-8
 
 ## 计算词频的例子
 def com_tf():
-    f = open('data/7s.txt', 'r')
+    f = open('data/文件名.txt', 'r')
     data = f.read()
 
     data_temp = data.decode('utf-8')  # 转换为unicode编码形式
@@ -22,7 +22,7 @@ def com_tf():
     data2 = jieba.cut(data)  # 分词
     data3 = " ".join(data2)  # 结果转换为字符串（列表转换为字符串）
 
-    open('data/7temp.txt', 'w').write(data3)  # 分词结果写入7temp.txt
+    open('data/文件名.txt', 'w').write(data3)  # 分词结果写入7temp.txt
 
     wlist = data3.split()      # 将分词结果按空格切割为列表（字符串的切割）
     num_dict = Counter(wlist)  # 统计词频
