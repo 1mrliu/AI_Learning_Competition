@@ -53,7 +53,7 @@ def build_inputs(num_seqs,num_steps):
     targets = tf.placeholder(tf.int32, shape=(num_seqs,num_steps),name='targets')
 
     # keep_prob dropout率
-    keep_prob = tf.placeholder(tf.int32, name='keep_prob')
+    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
     return inputs, targets, keep_prob
 # LSTM层
