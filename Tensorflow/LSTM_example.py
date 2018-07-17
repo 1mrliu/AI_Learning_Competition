@@ -81,11 +81,14 @@ def build_lstm(lstm_size, num_layers,batch_size,keep_prob):
     num_layers:隐藏层的个数
     batch_size
     '''
-    lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)
-    drop = tf.contrib.rnn.DropoutWrapper(lstm,output_keep_prob=keep_prob)
+    # lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)
+    # drop = tf.contrib.rnn.DropoutWrapper(lstm,output_keep_prob=keep_prob)
+    def lstm_cell():
+        lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)
+        return tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob=keep_prob)
     # 堆叠
     # drop for _ in range(num_layers) num_layers个数目的drop列表
-    cell = tf.contrib.rnn.MultiRNNCell([drop for _ in range(num_layers)])
+    cell = tf.contrib.rnn.MultiRNNCell([lstm_cell() for _ in range(num_layers)])
     initial_state = cell.zero_state(batch_size,tf.float32) 
     return cell, initial_state
 
