@@ -2,7 +2,7 @@
 import time
 from collections import namedtuple
 import tensorflow as tf
-import numpy as np 
+import numpy as np
 
 '''
 读取数据 
@@ -81,8 +81,6 @@ def build_lstm(lstm_size, num_layers,batch_size,keep_prob):
     num_layers:隐藏层的个数
     batch_size
     '''
-    # lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)
-    # drop = tf.contrib.rnn.DropoutWrapper(lstm,output_keep_prob=keep_prob)
     def lstm_cell():
         lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)
         return tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob=keep_prob)
@@ -95,11 +93,11 @@ def build_lstm(lstm_size, num_layers,batch_size,keep_prob):
 # 输出层
 def build_output(lstm_output, in_size,out_size):
     '''
-    输出结果
-    输出层重塑后的size
+    输出结果:LSTM层的输出结果是一个三维数组
+    LSTM输出层重塑后的size
     softmax层的size
     '''
-    seq_output = tf.concat(lstm_output,axis=1)
+    seq_output = tf.concat(lstm_output,1)
     x = tf.reshape(seq_output,[-1,in_size])
 
     # 将lstm层和softmax层进行连接
@@ -111,8 +109,9 @@ def build_output(lstm_output, in_size,out_size):
     print("#######################################")
     print(x.dtype)
     print(softmax_w)
+    # 计算logits
     logits = tf.matmul(x,softmax_w) + softmax_b
-
+    # softmax层返回概率分布
     out = tf.nn.softmax(logits,name='predictions')
     return out, logits
 
@@ -125,7 +124,8 @@ def build_loss(logits,targets,lstm_size,num_classes):
     y_one_hot = tf.one_hot(targets,num_classes)
     y_reshaped = tf.reshape(y_one_hot, logits.get_shape())
 
-    loss = tf.nn.softmax_cross_entropy_with_logits(logits=logits,labels=y_reshaped)
+    # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=y_reshaped)
+    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=tf.argmax(y_reshaped,1))
     loss = tf.reduce_mean(loss)
 
     return loss
@@ -146,19 +146,22 @@ class CharRNN:
     def __init__(self,num_classes,batch_size=64,num_steps=50,
                       lstm_size=128,num_layers=2,learning_rate=0.001,
                       grad_clip=5,sampling=False):
-        if sampling==True:
+        # 如果sampling是True，则采用SGD
+        if sampling == True:
             batch_size,num_steps = 1,1
         else:
             batch_size,num_steps = batch_size, num_steps
+
         tf.reset_default_graph()
         # 输入层
         self.inputs, self.targets,self.keep_prob = build_inputs(batch_size,num_steps)
         # LSTM层
         cell, self.initial_state = build_lstm(lstm_size,num_layers,batch_size,self.keep_prob)
 
-        # 对输入进行one-hot编码 谁的是一维数据 后边代表的是dimension维度的意思
-        # num_classes 
+        # 对输入进行one-hot编码 谁的是一维数据 后边代表的是dimension维度的意思 
         x_one_hot = tf.one_hot(self.inputs, num_classes)
+        print(self.inputs)
+        print(self.targets)
 
         print(x_one_hot)
         # 运行RNN
@@ -173,7 +176,7 @@ class CharRNN:
 
         # Loss  optimizer
         self.loss = build_loss(self.logits, self.targets, lstm_size, num_classes)
-        self.optimizer = build_optimizer(self.loss,learning_rate,grad_clip)
+        self.optimizer = build_optimizer(self.loss, learning_rate, grad_clip)
 # 模型训练
 # - num_seqs: 单个batch中序列的个数
 # - num_steps: 单个序列中字符数目
@@ -189,10 +192,11 @@ learning_rate = 0.001
 keep_prob = 0.5
 
 epochs = 20
+# 每n轮进行一次变量保存
 save_every_n = 200
+
 model = CharRNN(len(vocab), batch_size=batch_size,num_steps=num_steps,
-                lstm_size=lstm_size,num_layers=num_layers,learning_rate=learning_rate,
-                grad_clip=5,sampling=True)
+                lstm_size=lstm_size,num_layers=num_layers,learning_rate=learning_rate)
 
 saver = tf.train.Saver(max_to_keep=100)
 with tf.Session() as sess:
@@ -206,10 +210,10 @@ with tf.Session() as sess:
         for x,y in get_batches(encoded,batch_size,num_steps):
             counter += 1
             start = time.time()
-            feed = {model.inputs:x,
-                    model.targets:y,
-                    model.keep_prob:keep_prob,
-                    model.initial_state:new_state}
+            feed = {model.inputs: x,
+                    model.targets: y,
+                    model.keep_prob: keep_prob,
+                    model.initial_state: new_state}
             batch_loss, new_state, _ = sess.run([model.loss,
                                                 model.final_state,
                                                 model.optimizer],
@@ -235,6 +239,7 @@ with tf.Session() as sess:
 # 预测结果概率最大的前五个为[o,e,i,u,b]，我们将随机从这五个中挑选一个作为新的字符，
 # 让过程加入随机因素会减少一些噪音的生成。
 
+# In[18]:
 
 def pick_top_n(preds, vocab_size, top_n=5):
     """
@@ -254,6 +259,7 @@ def pick_top_n(preds, vocab_size, top_n=5):
     return c
 
 
+# In[19]:
 
 def sample(checkpoint, n_samples, lstm_size, vocab_size, prime="The "):
     """
@@ -305,20 +311,34 @@ def sample(checkpoint, n_samples, lstm_size, vocab_size, prime="The "):
 
 # Here, pass in the path to a checkpoint and sample from the network.
 
+# In[20]:
+
 tf.train.latest_checkpoint('checkpoints')
+
+
+# In[26]:
 
 # 选用最终的训练参数作为输入进行文本生成
 checkpoint = tf.train.latest_checkpoint('checkpoints')
 samp = sample(checkpoint, 2000, lstm_size, len(vocab), prime="The")
 print(samp)
 
+
+# In[22]:
+
 checkpoint = 'checkpoints/i200_l512.ckpt'
 samp = sample(checkpoint, 1000, lstm_size, len(vocab), prime="Far")
 print(samp)
 
+
+# In[23]:
+
 checkpoint = 'checkpoints/i1000_l512.ckpt'
 samp = sample(checkpoint, 1000, lstm_size, len(vocab), prime="Far")
 print(samp)
+
+
+# In[24]:
 
 checkpoint = 'checkpoints/i2000_l512.ckpt'
 samp = sample(checkpoint, 1000, lstm_size, len(vocab), prime="Far")
