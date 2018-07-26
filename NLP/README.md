@@ -45,7 +45,9 @@
   * 3.清理数据
   * 4.使用NLP中的WordCloud进行展示
   * 主要使用的库是 urllib BeautifulSoup jieba Wordcloud等
-  ***代码----抓取数据到分词案例---***
+  * ***代码位置在----抓取数据到分词案例.py---***
+  * 最后通过词云生成的结果见下图：
   ![输出结果](https://github.com/1mrliu/AI_Learning_Competition/blob/master/NLP/result.png)
+  * 通过这个案例，可以加深数据处理的思想，从数据的获取、清理、到最后使用自然语言处理的方式进行处理
   
   
