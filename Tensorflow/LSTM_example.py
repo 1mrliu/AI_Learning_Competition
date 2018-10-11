@@ -10,10 +10,9 @@ import numpy as np
 对文档中出现的字母和符号进行编号
 
 '''
-with open('D:/Users/sangfor/Desktop/anna.txt', 'r') as f:
+with open('anna.txt', 'r') as f:
     text = f.read()
 # print(text)
-# 使用set集合是为了去重
 vocab = set(text)
 # print(vocab)
 vocab_to_int = {c:i for i,c in enumerate(vocab)}

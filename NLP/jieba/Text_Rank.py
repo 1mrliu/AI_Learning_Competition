@@ -27,10 +27,10 @@ s = "云计算在电子政务中的应用\
      在现代化的西方空军面前难有自保之力，因此叙军的远程反击只能依靠另一个撒手锏——地对地战术弹道导弹."
 seg = jieba.analyse.textrank(s, topK=20, withWeight=True)
 for tag,weight in seg:
-    print "%s %s" %(tag,weight)
+    print ("%s %s" % (tag,weight))
 cut = jieba.cut(s)
 words = list(cut)
-print len(words)
+print (len(words))
 '''
 输出结果：
 电子政务 1.0
