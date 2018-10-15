@@ -1,2 +1,4 @@
-model_checkpoint_path: "i200_1512.ckpt"
+model_checkpoint_path: "i600_1512.ckpt"
 all_model_checkpoint_paths: "i200_1512.ckpt"
+all_model_checkpoint_paths: "i400_1512.ckpt"
+all_model_checkpoint_paths: "i600_1512.ckpt"
