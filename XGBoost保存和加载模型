@@ -1,0 +1,19 @@
+# 啊uther
+import xgboost as xgb
+from xgboost import XGBClassifier
+from sklearn.preprocessing import LabelEncoder
+
+
+xgb_clf = XGBClassifier()
+# 调用模型
+booster = xgb.Booster()
+booster.load_model('xgb.model')
+xgb_clf._Booster = booster
+xgb_clf._le = LabelEncoder().fit([0,1])
+preds = xgb_clf.predict(test_X)
+# 保存模型
+xgb_clf.save_model('xgb.model')
+
+参考解决办法链接：
+https://github.com/dmlc/xgboost/issues/2073
+https://www.cnblogs.com/sench/p/10134094.html
